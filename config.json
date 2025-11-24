@@ -1,18 +1,18 @@
 {
   "devMode": true,
   "timeZone": "Asia/Dhaka",
-  "prefix": "!",
+  "prefix": "/",
   "symbols": "●",
   "owner": {
-    "name": "YOUR_NAME",
+    "name": "CHRISTUS",
     "facebook": "FACEBOOK_ID",
-    "username": "TG_USERNAME"
+    "username": "VOID BOT"
   },
   "admin": [
-    "ADMIN_UID"
+    "7808139364"
   ],
   "vip": [
-    "VIP_UID"
+    "7808139364"
   ],
   "loadCmds": true,
   "loadEvents": true,
@@ -20,8 +20,8 @@
     "noAdmin": true,
     "whitelist": false,
     "list": [
-      "GROUP_ID1",
-      "GROUP_ID2"
+      "https://t.me/+OSdDlVUccgowM2Q0",
+      "https://t.me/+1QeN3DmdhuQ0ODM0"
     ]
   },
   "inbox": {
