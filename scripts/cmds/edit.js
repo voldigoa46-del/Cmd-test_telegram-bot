@@ -6,7 +6,7 @@ const CONFIG_URL =
 const nix = {
   name: "edit",
   aliases: ["imgedit", "gen"],
-  version: "1.1.0",
+  version: "1.2.0",
   author: "Christus",
   cooldown: 5,
   role: 0,
@@ -16,12 +16,12 @@ const nix = {
   guide:
     "{p}edit <prompt>\n" +
     "Reply to an image to edit it\n" +
-    "Example: {p}edit make it anime style",
+    "Example: reply image + {p}edit anime style",
 };
 
 async function getRenzApi() {
   const { data } = await axios.get(CONFIG_URL, { timeout: 10000 });
-  if (!data || !data.renz) throw new Error("API config not found");
+  if (!data?.renz) throw new Error("API config not found");
   return data.renz;
 }
 
@@ -33,7 +33,7 @@ async function onStart({ bot, message, msg, chatId, args }) {
 
   const waitMsg = await bot.sendMessage(
     chatId,
-    "🖼️ Processing your image...",
+    "🖼️ Processing image...",
     { reply_to_message_id: msg.message_id }
   );
 
@@ -43,23 +43,25 @@ async function onStart({ bot, message, msg, chatId, args }) {
     let apiURL = `${BASE_URL}/api/gptimage?prompt=${encodeURIComponent(prompt)}`;
     let mode = "gen";
 
-    const replied = msg.reply_to_message?.photo?.[0];
+    /* ===== IMAGE REPLY HANDLING (FIXED) ===== */
+    const photo =
+      msg.reply_to_message?.photo?.slice(-1)[0]; // meilleure qualité
 
-    if (replied && replied.file_id) {
-      apiURL += `&ref=${encodeURIComponent(replied.file_id)}`;
+    if (photo?.file_id) {
+      const imageURL = await bot.getFileLink(photo.file_id);
+      apiURL += `&ref=${encodeURIComponent(imageURL)}`;
       mode = "edit";
     } else {
       apiURL += `&width=512&height=512`;
     }
 
-    // 🔍 SAFE FETCH
+    /* ===== SAFE REQUEST ===== */
     const res = await axios.get(apiURL, {
       responseType: "arraybuffer",
       validateStatus: () => true,
     });
 
     const contentType = res.headers["content-type"] || "";
-
     if (!contentType.startsWith("image/")) {
       throw new Error("API did not return an image");
     }
