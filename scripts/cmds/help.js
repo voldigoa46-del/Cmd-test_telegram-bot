@@ -1,109 +1,89 @@
-const axios = require('axios');
-
 module.exports = {
   nix: {
-    name: "help",
-    aliases: ["menu", "aide", "h"],
-    version: "1.5.0",
-    author: "ArYAN (Nix Port)",
+    name: "menu",
+    version: "3.2.1",
+    author: "Christus dev AI",
+    aliases: ["help", "start", "aide"],
+    description: "Affiche la liste dynamique des commandes du bot.",
+    category: "système",
     role: 0,
-    category: "utilitaire",
-    description: "Affiche le menu d'aide avec votre photo de profil.",
-    guide: "{p}help [nom de commande]"
+    cooldown: 1,
+    guide: "{p}menu [nom de commande]"
   },
 
   async onStart({ bot, msg, chatId, args }) {
-    const userId = msg.from.id;
-    const userName = msg.from.first_name;
-    const prefix = "/";
-
+    // Accès à la collection globale des commandes Nix
     if (!global.teamnix || !global.teamnix.cmds) {
-      return bot.sendMessage(chatId, "❌ Erreur : Système de commandes non chargé.");
+      return bot.sendMessage(chatId, "❌ Erreur : Le système de commandes n'est pas initialisé.");
     }
-
+    
     const commands = global.teamnix.cmds;
+    const prefix = "/"; // Tu peux adapter selon ton préfixe réel
 
-    // --- LOGIQUE DE RÉCUPÉRATION DE L'AVATAR ---
-    let avatarUrl = null;
-    try {
-      const photos = await bot.getUserProfilePhotos(userId);
-      if (photos.total_count > 0) {
-        const fileId = photos.photos[0][0].file_id;
-        avatarUrl = await bot.getFileLink(fileId);
-      }
-    } catch (e) {
-      console.log("Erreur récupération avatar help");
-    }
-
-    // --- CAS 1 : AIDE DÉTAILLÉE POUR UNE COMMANDE ---
-    if (args.length) {
+    // --- 1. DÉTAILS D'UNE COMMANDE PRÉCISE ---
+    if (args[0] && args[0].toLowerCase() !== "all") {
       const query = args[0].toLowerCase();
-      const cmd = [...commands.values()].find(
+      const specificCmd = [...commands.values()].find(
         (c) => c.nix.name === query || (c.nix.aliases && c.nix.aliases.includes(query))
       );
 
-      if (!cmd) return bot.sendMessage(chatId, `❌ Commande "${query}" introuvable.`);
+      if (specificCmd) {
+        const { name, description, category, cooldown, author, version, aliases } = specificCmd.nix;
 
-      const info = cmd.nix;
-      const detail = `
-╭─────────────────────◊
-│ ▸ Commande : ${info.name}
-│ ▸ Alias : ${info.aliases?.length ? info.aliases.join(", ") : "Aucun"}
-│ ▸ Permission : ${info.role === 2 ? "Admin" : info.role === 1 ? "VIP" : "Tous"}
-│ ▸ Catégorie : ${info.category?.toUpperCase() || "AUTRES"}
-│ ▸ Version : ${info.version || "1.0"}
-│ ▸ Description : ${info.description || "Pas de description"}
-╰─────────────────────◊
-      `.trim();
-
-      if (avatarUrl) {
-        return bot.sendPhoto(chatId, avatarUrl, { caption: detail });
-      } else {
+        let detail = `╭─── 📄 INFO : ${name.toUpperCase()} ───\n`;
+        detail += `│ 📜 Nom : ${name}\n`;
+        detail += `│ 👤 Auteur : ${author || "Inconnu"}\n`;
+        detail += `│ 💬 Description : ${description || "Aucune description"}\n`;
+        detail += `│ 📁 Catégorie : ${category || "Autres"}\n`;
+        detail += `│ ⏳ Cooldown : ${cooldown || 0}s\n`;
+        detail += `│ 🖇️ Alias : ${aliases ? aliases.join(", ") : "Aucun"}\n`;
+        detail += `│ 📋 Version : ${version || "1.0.0"}\n`;
+        detail += `╰────────────────`;
+        
         return bot.sendMessage(chatId, detail);
+      } else {
+        return bot.sendMessage(chatId, `❌ La commande ${query} n'existe pas.`);
       }
     }
 
-    // --- CAS 2 : MENU GÉNÉRAL ---
-    const cats = {};
-    [...commands.values()]
-      .filter((command, index, self) =>
-        index === self.findIndex((c) => c.nix.name === command.nix.name)
-      )
-      .forEach((c) => {
-        const cat = c.nix.category || "Autres";
-        if (!cats[cat]) cats[cat] = [];
-        if (!cats[cat].includes(c.nix.name)) cats[cat].push(c.nix.name);
-      });
+    // --- 2. MENU GÉNÉRAL ---
+    const categorizedCommands = {};
 
-    const catTitles = {
-      media: "Média",
-      utility: "Utilitaire",
-      utilitaire: "Utilitaire",
-      game: "Jeux",
-      economy: "Économie",
-      économie: "Économie",
-      ai: "IA & Chat",
-      image: "Images",
-      system: "Système"
-    };
-
-    let menuMsg = `👋 Bonjour ${userName} !\nVoici la liste de mes capacités :\n\n`;
-
-    Object.keys(cats).sort().forEach((cat) => {
-      const title = catTitles[cat.toLowerCase()] || cat.toUpperCase();
-      menuMsg += `🍓 ${title}\n`;
-      menuMsg += `${cats[cat].sort().map(cmd => `✿ ${cmd}`).join("   ")}\n\n`;
+    // Groupement des commandes par catégorie
+    [...commands.values()].forEach((command) => {
+      const category = command.nix.category || "Autres";
+      if (!categorizedCommands[category]) categorizedCommands[category] = [];
+      
+      // Éviter les doublons de noms (si une commande est chargée deux fois)
+      if (!categorizedCommands[category].includes(command.nix.name)) {
+        categorizedCommands[category].push(command.nix.name);
+      }
     });
 
-    const totalCmds = [...new Set([...commands.values()].map(c => c.nix.name))].length;
-    menuMsg += `📊 Total : ${totalCmds} commandes\n`;
-    menuMsg += `🔧 Aide : ${prefix}help [commande]`;
+    // Tri alphabétique des catégories
+    const sortedCategories = Object.keys(categorizedCommands).sort();
 
-    // Envoi final avec ou sans photo
-    if (avatarUrl) {
-      return bot.sendPhoto(chatId, avatarUrl, { caption: menuMsg });
-    } else {
-      return bot.sendMessage(chatId, menuMsg);
+    let result = `📚 MENU DES COMMANDES NIX\n\n`;
+
+    for (const category of sortedCategories) {
+      // Titre de la catégorie avec émoji fraise comme dans l'original
+      result += `🍓 ${category.toUpperCase()}\n`;
+      
+      // Liste des commandes avec l'émoji fleur
+      const cmdList = categorizedCommands[category]
+        .sort()
+        .map(name => `✿ ${name}`)
+        .join("   ");
+      
+      result += `${cmdList}\n\n`;
     }
+
+    // Pied de page
+    const totalCmds = [...new Set([...commands.values()].map(c => c.nix.name))].length;
+    result += `📊 Total des commandes : ${totalCmds}\n`;
+    result += `🔧 Aide spécifique : ${prefix}menu [nom]\n`;
+    result += `🤖 Système Nix par Christus dev AI`;
+
+    return bot.sendMessage(chatId, result);
   }
 };
