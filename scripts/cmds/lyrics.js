@@ -5,7 +5,7 @@ const path = require("path");
 const nix = {
   name: "lyrics",
   aliases: ["lyric", "songtext"],
-  version: "1.2.0",
+  version: "1.2.1",
   author: "Christus dev AI",
   cooldown: 5,
   role: 0,
@@ -20,6 +20,19 @@ const UNISpectra = {
   standardLine: "━━━━━━━━━━━━━━━━━━━━",
 };
 
+function formatLyrics(data) {
+  return `${UNISpectra.charm} Lyrics Transmission
+${UNISpectra.standardLine}
+🎼 Title   : ${data.track_name || "Unknown"}
+👤 Artist  : ${data.artist_name || "Unknown"}
+${UNISpectra.standardLine}
+
+${data.lyrics || "Lyrics not available."}
+
+${UNISpectra.standardLine}
+${UNISpectra.charm} ChristusBot 🌌`;
+}
+
 async function onStart({ bot, message, msg, chatId, args }) {
   const query = args.join(" ").trim();
   if (!query) return message.reply("⚠️ Please provide a song name.\nExample: lyrics apt");
@@ -31,44 +44,39 @@ async function onStart({ bot, message, msg, chatId, args }) {
 
     if (!data?.lyrics) return message.reply("❌ Lyrics not found.");
 
-    const formatLyrics = (d) =>
-      `${UNISpectra.charm} Lyrics Transmission
-${UNISpectra.standardLine}
-🎼 Title   : ${d.track_name}
-👤 Artist  : ${d.artist_name}
-${UNISpectra.standardLine}
-
-${d.lyrics}
-
-${UNISpectra.standardLine}
-${UNISpectra.charm} ChristusBot 🌌`;
+    const bodyText = formatLyrics(data);
 
     const imagePath = path.join(__dirname, `lyrics_${Date.now()}.jpg`);
 
     try {
-      const imgRes = await axios.get(data.artwork_url, { responseType: "stream" });
-      const writer = fs.createWriteStream(imagePath);
-      imgRes.data.pipe(writer);
+      if (data.artwork_url) {
+        const imgRes = await axios.get(data.artwork_url, { responseType: "stream" });
+        const writer = fs.createWriteStream(imagePath);
+        imgRes.data.pipe(writer);
 
-      await new Promise((resolve, reject) => {
-        writer.on("finish", resolve);
-        writer.on("error", reject);
-      });
+        await new Promise((resolve, reject) => {
+          writer.on("finish", resolve);
+          writer.on("error", reject);
+        });
 
-      await bot.sendMessage(chatId, {
-        body: formatLyrics(data),
-        attachment: fs.createReadStream(imagePath),
-        reply_to_message_id: msg.message_id,
-      });
+        await bot.sendMessage(chatId, {
+          body: bodyText || "Lyrics not available.",
+          attachment: fs.createReadStream(imagePath),
+          reply_to_message_id: msg.message_id,
+        });
 
-      fs.unlinkSync(imagePath);
-    } catch {
-      // fallback sans image
-      await bot.sendMessage(chatId, {
-        body: formatLyrics(data),
-        reply_to_message_id: msg.message_id,
-      });
+        fs.unlinkSync(imagePath);
+        return;
+      }
+    } catch (err) {
+      console.error("Artwork fetch failed, sending without image.", err);
     }
+
+    // Fallback: send lyrics only
+    await bot.sendMessage(chatId, {
+      body: bodyText || "Lyrics not available.",
+      reply_to_message_id: msg.message_id,
+    });
   } catch (err) {
     console.error("Lyrics Error:", err);
     await bot.sendMessage(chatId, {
