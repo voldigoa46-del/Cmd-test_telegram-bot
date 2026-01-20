@@ -7,7 +7,7 @@ const nix = {
   version: "4.0.0",
   aliases: ["q", "qz"],
   description: "Suite complète de jeux Quiz (Général, Anime, Drapeaux, Daily) en Français.",
-  author: "Ported by Gemini", 
+  author: "Christus", 
   prefix: true,
   category: "game",
   role: 0,
